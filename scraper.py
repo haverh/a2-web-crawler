@@ -1,6 +1,6 @@
 import re
 from urllib.parse import urlparse
-
+from bs4 import BeautifulSoup
 def scraper(url, resp):
     links = extract_next_links(url, resp)
     return [link for link in links if is_valid(link)]
@@ -15,7 +15,7 @@ def extract_next_links(url, resp):
 
 	if resp.status == 200:
 		soup = BeautifulSoup(resp.raw_response.content, "html.parser");
-		for link in soup.final_all('a'):
+		for link in soup.find_all('a'):
 			linkURL = link.get('href');
 			if linkURL is not None:
 				if re.match(r"/[a-zA-Z0-9]+", linkURL):
