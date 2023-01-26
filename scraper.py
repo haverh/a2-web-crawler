@@ -10,12 +10,27 @@ def extract_next_links(url, resp):
     # url: the URL that was used to get the page
     # resp.url: the actual url of the page
     # resp.status: the status code returned by the server. 200 is OK, you got the page. Other numbers mean that there was some kind of problem.
+	Domain = [".ics.uci.edu", ".cs.uci.edu", ".informatics.uci.edu", ".stat.uci.edu"];
+	setOfURL = set();
+
+	if resp.status == 200:
+		soup = BeautifulSoup(resp.raw_response.content, "html.parser");
+		for link in soup.final_all('a'):
+			linkURL = link.get('href');
+			if linkURL is not None:
+				if re.match(r"/[a-zA-Z0-9]+", linkURL):
+					setOfURL.add(resp.url + linkURL);
+				elif linkURL in Domain:
+					setOfURL.add(linkURL);
+	if resp.status != 200:
+		print("Error Status: ", resp.error);
+	return setOfURL;
     # resp.error: when status is not 200, you can check the error here, if needed.
     # resp.raw_response: this is where the page actually is. More specifically, the raw_response has two parts:
     #         resp.raw_response.url: the url, again
     #         resp.raw_response.content: the content of the page!
     # Return a list with the hyperlinks (as strings) scrapped from resp.raw_response.content
-    return list()
+    #return list()
 
 def is_valid(url):
     # Decide whether to crawl this url or not. 
