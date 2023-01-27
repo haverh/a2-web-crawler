@@ -2,6 +2,7 @@ import re
 from collections import defaultdict
 from urllib.parse import urlparse
 from bs4 import BeautifulSoup
+from os.path import exists
 #from nltk.tokenize import word_tokenize
 import pickle
 def scraper(url, resp):
@@ -14,6 +15,7 @@ def extract_next_links(url, resp):
     # resp.url: the actual url of the page
     # resp.status: the status code returned by the server. 200 is OK, you got the page. Other numbers mean that there was some kind of problem.
 	Domain = [".ics.uci.edu", ".cs.uci.edu", ".informatics.uci.edu", ".stat.uci.edu"];
+	pickleFile = "visited.p";
 	setOfURL = set();
 	# Traps:
 	# Calendar, going in a circle
@@ -27,6 +29,9 @@ def extract_next_links(url, resp):
 
 
 #			print(linkURL, 		"this is url");
+
+			# NEED to include defragment 
+			# Remove # from the URL
 			if linkURL is not None:
 				if re.match(r"/[a-zA-Z0-9]+", linkURL):
 #					print(resp.url, "		This is the url of the page");
@@ -38,8 +43,12 @@ def extract_next_links(url, resp):
 							setOfURL.add(linkURL);
 	if resp.status != 200:
 		print("Error Status: ", resp.error);
-
-	pickle.dump(setOfURL, open("visited.p", "ab+"));	
+	
+	# We need to delete file if it exist 
+	if (exists(pickleFile)):
+		pickle.dump(setOfURL, open(pickleFile, "wb"));
+	else:
+		pickle.dump(setOfURL, open("visited.p", "ab+"));	
 	return list(setOfURL);
     # resp.error: when status is not 200, you can check the error here, if needed.
     # resp.raw_response: this is where the page actually is. More specifically, the raw_response has two parts:
@@ -64,15 +73,25 @@ def is_valid(url):
 		#print(token, "		this is the tokenn");
 		if len(token) > 1:
 			return False;
+		# Check if the url is repeating the same path
+		# e.g. /about/about/about/ ...
 		token = parsed.path.split('/');	
 		for word in token:
 			counterDict[word] += 1;
 			if (counterDict[word] > 1):
 				return False;
+		for link in token:
+			if ".php" in link and token[-1] != link:
+				return False;
+		# Check if the url exist to prevent crawlling it multiple times
 		setOfURL = pickle.load(open("visited.p", "rb"));
-		print(setOfURL);
-		if url in setOfURL:
-			return False;
+		#print(setOfURL);
+		urlDict = defaultdict(int);
+		for url in setOfURL:
+			urlDict[url] += 1;
+			if urlDict[url] > 1:
+				return False;
+			#return False;
 		return not re.match(
             r".*\.(css|js|bmp|gif|jpe?g|ico"
             + r"|png|tiff?|mid|mp2|mp3|mp4"
