@@ -3,59 +3,66 @@ from collections import defaultdict
 from urllib.parse import urlparse
 from bs4 import BeautifulSoup
 from os.path import exists
-#from nltk.tokenize import word_tokenize
 import pickle
 def scraper(url, resp):
     links = extract_next_links(url, resp)
     return [link for link in links if is_valid(link)]
 
 def extract_next_links(url, resp):
+	# ===========================================================================================
     # Implementation required.
     # url: the URL that was used to get the page
     # resp.url: the actual url of the page
     # resp.status: the status code returned by the server. 200 is OK, you got the page. Other numbers mean that there was some kind of problem.
-	Domain = [".ics.uci.edu", ".cs.uci.edu", ".informatics.uci.edu", ".stat.uci.edu"];
-	pickleFile = "visited.p";
-	setOfURL = set();
-	# Traps:
-	# Calendar, going in a circle
-	if resp.status == 200:
-		soup = BeautifulSoup(resp.raw_response.content, "html.parser");
-		for link in soup.find_all('a'):
-			linkURL = link.get('href');
-#			parsed = urlparse(url);
-#			token = word_tokenize(parsed.path);
-#			print(token, "	this is token");
-
-
-#			print(linkURL, 		"this is url");
-
-			# NEED to include defragment 
-			# Remove # from the URL
-			if linkURL is not None:
-				if re.match(r"/[a-zA-Z0-9]+", linkURL):
-#					print(resp.url, "		This is the url of the page");
-					setOfURL.add(resp.url + linkURL);
-				else:
-					for domain in Domain:
-						if domain in linkURL:
-#							print(linkURL, "    is in domain");
-							setOfURL.add(linkURL);
-	if resp.status != 200:
-		print("Error Status: ", resp.error);
-	
-	# We need to delete file if it exist 
-	if (exists(pickleFile)):
-		pickle.dump(setOfURL, open(pickleFile, "wb"));
-	else:
-		pickle.dump(setOfURL, open("visited.p", "ab+"));	
-	return list(setOfURL);
-    # resp.error: when status is not 200, you can check the error here, if needed.
+	# resp.error: when status is not 200, you can check the error here, if needed.
     # resp.raw_response: this is where the page actually is. More specifically, the raw_response has two parts:
     #         resp.raw_response.url: the url, again
     #         resp.raw_response.content: the content of the page!
     # Return a list with the hyperlinks (as strings) scrapped from resp.raw_response.content
-    #return list()
+	# ===========================================================================================
+	# Domains to access
+	Domain = [".ics.uci.edu", ".cs.uci.edu", ".informatics.uci.edu", ".stat.uci.edu"];
+	# File containing all visited webpages!
+	file = "visited.p";
+
+	# List of all hyperlinks found on the current webpage and to return
+	URLs = list();
+
+	if resp.status == 200:
+		soup = BeautifulSoup(resp.raw_response.content, "html.parser");
+		for link in soup.find_all('a'):
+			hyperlink = link.get('href');
+			
+			# Check the webpage contain a hyperlink or in other words
+			# Check if the above hyperlink does not return a nonetype
+			# to prevent errors
+			
+			if hyperlink is not None:
+				
+				# Add the domain iff the hyperlink starts with a slash
+				# e.g. /about --> https://www.ics.uci.edu/about
+				if re.match(r"/[a-zA-Z0-9]+", hyperlink):
+					for domain in Domain:
+						if  domain in hyperlink:
+							URLs.append(domain + hyperlink);
+							break;
+				else:
+					# Check if the link is within the domain
+					# Possible move to is_valid method
+					for domain in Domain:
+						if domain in hyperlink:
+							URLs.append(hyperlink);
+
+		# Save the current URL  to the pickle file
+		# to prevent crawlling the same URL multiple times
+		# Append mode
+		pickle.dump(resp.raw_response.url, open(file, "ab"));
+		# Return the list of hyperlinks found on the current webpage
+		return URLs;
+	else:
+		print("Error Status: ", resp.error);
+	return URLs;
+	
 
 def is_valid(url):
     # Decide whether to crawl this url or not. 
@@ -64,6 +71,8 @@ def is_valid(url):
 	try:
 		parsed = urlparse(url)
 		counterDict = defaultdict(int);
+		# Pickle File
+		file = "visited.p"
 		if parsed.scheme not in set(["http", "https"]):
 			return False
 
@@ -76,22 +85,28 @@ def is_valid(url):
 		# Check if the url is repeating the same path
 		# e.g. /about/about/about/ ...
 		token = parsed.path.split('/');	
+		
 		for word in token:
 			counterDict[word] += 1;
 			if (counterDict[word] > 1):
 				return False;
+	
 		for link in token:
 			if ".php" in link and token[-1] != link:
 				return False;
 		# Check if the url exist to prevent crawlling it multiple times
-		setOfURL = pickle.load(open("visited.p", "rb"));
+		URLs = pickle.load(open("visited.p", "rb"));
 		#print(setOfURL);
-		urlDict = defaultdict(int);
-		for url in setOfURL:
-			urlDict[url] += 1;
-			if urlDict[url] > 1:
+		
+		visited = set();
+		for visitedURL in URLs:
+			# Whenever the url is a webpage we traveled already
+			# Return False;
+			if visitedURL != url and url in visited:
 				return False;
-			#return False;
+			else:
+				visited.add(visitedURL);
+		
 		return not re.match(
             r".*\.(css|js|bmp|gif|jpe?g|ico"
             + r"|png|tiff?|mid|mp2|mp3|mp4"
