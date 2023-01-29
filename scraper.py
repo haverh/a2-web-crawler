@@ -4,6 +4,7 @@ from urllib.parse import urlparse
 from bs4 import BeautifulSoup
 from os.path import exists
 import pickle
+# Modify this function
 def scraper(url, resp):
     links = extract_next_links(url, resp)
     return [link for link in links if is_valid(link)]
@@ -24,10 +25,9 @@ def extract_next_links(url, resp):
 	Domain = [".ics.uci.edu", ".cs.uci.edu", ".informatics.uci.edu", ".stat.uci.edu"];
 	# File containing all visited webpages!
 	file = "visited.p";
-
+	
 	# List of all hyperlinks found on the current webpage and to return
 	URLs = list();
-
 	if resp.status == 200:
 		soup = BeautifulSoup(resp.raw_response.content, "html.parser");
 		for link in soup.find_all('a'):
@@ -37,7 +37,7 @@ def extract_next_links(url, resp):
 			# Check if the above hyperlink does not return a nonetype
 			# to prevent errors
 			
-			if hyperlink is not None:
+			if hyperlink:
 				
 				# Add the domain iff the hyperlink starts with a slash
 				# e.g. /about --> https://www.ics.uci.edu/about
@@ -80,20 +80,29 @@ def is_valid(url):
 		#### list of string after domain
 		#print(parsed.path, "		this is the parsed");
 		#print(token, "		this is the tokenn");
-		if len(token) > 1:
-			return False;
+		#if len(token) > 1:
+	#		return False;
+
+
+
 		# Check if the url is repeating the same path
 		# e.g. /about/about/about/ ...
+		
 		token = parsed.path.split('/');	
 		
 		for word in token:
-			counterDict[word] += 1;
-			if (counterDict[word] > 1):
-				return False;
-	
+			# Ignores white spaces
+			if len(word) > 0:
+				counterDict[word] += 1;
+				if (counterDict[word] > 1):
+					print(token , " REMOVED ", word, " ", url);
+					return False;
+		
+		# Do not know what this is doing
 		for link in token:
 			if ".php" in link and token[-1] != link:
 				return False;
+		
 		# Check if the url exist to prevent crawlling it multiple times
 		URLs = pickle.load(open("visited.p", "rb"));
 		#print(setOfURL);
