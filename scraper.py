@@ -1,6 +1,9 @@
 import re
 from urllib.parse import urlparse
 from bs4 import BeautifulSoup
+import pickle
+from collections import defaultdict
+from os.path import exists
 
 def scraper(url, resp):
 	links = extract_next_links(url, resp)
@@ -16,25 +19,102 @@ def extract_next_links(url, resp):
     #         resp.raw_response.url: the url, again
     #         resp.raw_response.content: the content of the page!
     # Return a list with the hyperlinks (as strings) scrapped from resp.raw_response.content
-	domains = [".ics.uci.edu/", ".cs.uci.edu/", ".informatics.uci.edu/", ".stat.uci.edu/"]
-	soup = BeautifulSoup( resp.raw_response.content, 'html.parser')
-	for link in soup.find_all('a'):
-		print(link.get('href'))
-		"""
-		for domain in domains:
-			if ( domain in link.get('href') ):
-				print(link.get('href'))
-		"""
-	return list()
 
+	domains = [".ics.uci.edu", ".cs.uci.edu", ".informatics.uci.edu", ".stat.uci.edu"]
+	crawledLinks = []
+	# print("NETLOC : " + urlparse(url).netloc)
+	
+
+	if  (resp.status == 200):
+		#print("STATUS : " + str(resp.status))
+		
+		soup = BeautifulSoup( resp.raw_response.content, "html.parser")
+
+		# Get all urls that are in the a valid domain
+		for link in soup.find_all('a'):
+			linkUrl = link.get('href')
+
+			if ( linkUrl ):
+				# Create url with a page path
+				isPath = re.match("^\/\w+", linkUrl)
+				if ( isPath ):
+					newUrl = urlparse(url).netloc + linkUrl
+					# print("ADDED -> " + str(newUrl))
+					crawledLinks.append(newUrl)
+		
+				else:
+					# Check if domain name is valid
+					for domain in domains:
+						if ( domain in linkUrl ):
+							# print("ADDED -> " + str(linkUrl))
+							crawledLinks.append(linkUrl)
+	
+		if ( not exists('validLinks.bin') ):
+			vLinks = open( 'validLinks.bin', 'wb' )
+			validLinks = {resp.url}
+			pickle.dump(validLinks, vLinks)
+			vLinks.close()
+		else:
+			vLinks = open('validLinks.bin', 'rb')
+			validLinks = pickle.load(vLinks)
+			validLinks.add(resp.url)
+			vLinks.close()
+
+			vLinks = open('validLinks.bin', 'wb')
+			pickle.dump(validLinks, vLinks)
+			vLinks.close
+	
+		return crawledLinks
+
+
+
+	else:
+		print("ERROR STATUS: " + str(resp.status))
+		print("RESP -> " + str(resp.raw_response))
+		print("			" + str(resp.error))
+		return list()
+
+	
 def is_valid(url):
     # Decide whether to crawl this url or not. 
     # If you decide to crawl it, return True; otherwise return False.
     # There are already some conditions that return False.
-	try:
+	try:	
+		pathCount = defaultdict(int)
+
 		parsed = urlparse(url)
+		
 		if parsed.scheme not in set(["http", "https"]):
 			return False
+		
+		pToken = parsed.path.split('/')
+		
+		for word in pToken:
+			if ( len(word) > 0 ):
+				pathCount[word] += 1
+				if ( pathCount[word] > 1 ):
+					return False;
+
+		for link in pToken:
+			if ".php" in link and pToken[-1] != link:
+				return False;	
+		
+		# Check Visited
+		vLinks = open( 'validLinks.bin', 'rb' )
+		validLinks = pickle.load(vLinks)
+		#print( validLinks )
+		if ( url not in validLinks ):
+			# print("\nCRAWL COMMENCING -> " + str(url) + "\n")
+			validLinks.add(url)
+			vLinks.close()
+			vLinks = open( 'validLinks.bin', 'wb' )
+			pickle.dump(validLinks, vLinks)
+			vLinks.close()
+			return True
+		else:
+			# print("+_+_+_+_+_+_+ ALREADY CRAWLED -> " + str(url) )
+			return False
+		
 		return not re.match(
 			r".*\.(css|js|bmp|gif|jpe?g|ico"
 			+ r"|png|tiff?|mid|mp2|mp3|mp4"
@@ -44,6 +124,7 @@ def is_valid(url):
 			+ r"|epub|dll|cnf|tgz|sha1"
 			+ r"|thmx|mso|arff|rtf|jar|csv"
 			+ r"|rm|smil|wmv|swf|wma|zip|rar|gz)$", parsed.path.lower())
+
 
 	except TypeError:
 		print ("TypeError for ", parsed)
