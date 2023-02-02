@@ -26,7 +26,7 @@ def extract_next_links(url, resp):
 	Domain = [".ics.uci.edu", ".cs.uci.edu", ".informatics.uci.edu", ".stat.uci.edu"];
 	# File containing all visited webpages!
 	file = "visited.p";
-	contentFile = "content.p";
+	contentFile = "content.txt";
 	# List of all hyperlinks found on the current webpage and to return
 	URLs = list();
 	# Possible Traps
@@ -34,7 +34,7 @@ def extract_next_links(url, resp):
 	# distinct infinite path that leads to the same page
 	length = 0;
 	# If the website has content and not an empty page
-	if (resp.raw_response.content):
+	if (resp.status == 200 and resp.raw_response.content):
 		length = len(resp.raw_response.content);
 	# Check if the website status is 200
 	# If the page's content is between 2,000 and 1,000,000
@@ -90,9 +90,38 @@ def extract_next_links(url, resp):
 		# Return the list of hyperlinks found on the current webpage
 		return URLs;
 	else:
+		pickle.dump(set(url), open("failedLinks.txt", "ab"));
 		print("Error Status: ", resp.error);
 	return URLs;
-	
+
+
+# Exclude .mat
+# Still geting pdf, tar.gz .m .zip
+# .txt
+# .html
+# .ppt
+# .java
+# .in
+# .php
+# .jpg
+# .py
+# .scm
+# .rkt
+# .ss 
+# .pptx
+def checkExtension(path):
+	return not re.match(
+        r".*\.(css|js|bmp|gif|jpe?g|ico"
+        + r"|png|tiff?|mid|mp2|mp3|mp4"
+        + r"|wav|avi|mov|mpeg|ram|m4v|mkv|ogg|ogv|pdf"
+        + r"|ps|eps|tex|ppt|pptx|doc|docx|xls|xlsx|names"
+        + r"|data|dat|exe|bz2|tar|msi|bin|7z|psd|dmg|iso"
+        + r"|epub|dll|cnf|tgz|sha1"
+        + r"|thmx|mso|arff|rtf|jar|csv"
+        + r"|rm|smil|wmv|swf|wma|zip|rar|gz)$", path.lower()) 
+
+
+
 
 def is_valid(url):
     # Decide whether to crawl this url or not. 
@@ -106,7 +135,7 @@ def is_valid(url):
 		counterDict = defaultdict(int);
 		# Pickle File
 		file = "visited.p"
-		contentFile = "content.p";
+		contentFile = "content.txt";
 		if parsed.scheme not in set(["http", "https"]):
 			return False
 		
@@ -157,13 +186,15 @@ def is_valid(url):
 		
 
 		# At the moment, this only checks for exact copies
+		
 		for content in contentList:
-			if content not in contentList:
+			if content not in similarContent:
 				similarContent.add(content);
 			else:
+				pickle.dump(content, open("similarContent.txt", "ab"))
 				return False;
 		
-
+		"""
 		return not re.match(
             r".*\.(css|js|bmp|gif|jpe?g|ico"
             + r"|png|tiff?|mid|mp2|mp3|mp4"
@@ -172,7 +203,12 @@ def is_valid(url):
             + r"|data|dat|exe|bz2|tar|msi|bin|7z|psd|dmg|iso"
             + r"|epub|dll|cnf|tgz|sha1"
             + r"|thmx|mso|arff|rtf|jar|csv"
-            + r"|rm|smil|wmv|swf|wma|zip|rar|gz)$", parsed.path.lower())
+            + r"|rm|smil|wmv|swf|wma|zip|rar|gz)$", parsed.path.lower()) 
+		"""
+
+		# Both needs to return true as it checks in both the url's path and query
+		
+		return checkExtension(parsed.path) and checkExtension(parsed.query);
 	except TypeError:
 		print ("TypeError for ", parsed)
 		raise
