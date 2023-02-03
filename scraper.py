@@ -6,7 +6,9 @@ from collections import defaultdict
 from os.path import exists
 from sys import getsizeof
 
+
 def scraper(url, resp):
+	print("				--		Scraper		--");	
 	links = extract_next_links(url, resp)
 	return [link for link in links if is_valid(link)]
 
@@ -23,6 +25,7 @@ def extract_next_links(url, resp):
 
 	# List consisting of valid domains to crawl
 	domains = [".ics.uci.edu", ".cs.uci.edu", ".informatics.uci.edu", ".stat.uci.edu"]
+	blacklist = ["wics.ics.uci.edu/events/"]
 	crawledLinks = []
 
 	# Extract links if the status is 200
@@ -30,14 +33,21 @@ def extract_next_links(url, resp):
 
 		# Limits the size of content for extraction
 		sz = getsizeof(resp.raw_response.content)
+
 		if (sz >= 10000 and sz < 1000000):
 			soup = BeautifulSoup( resp.raw_response.content, "html.parser")
 
+			'''
+			if ( re.match("\w*date\w*=", url )):
+				return list()
+			'''
+			
 			# Get all URLs that are in the a valid domain
 			for link in soup.find_all('a'):
 				linkUrl = link.get('href')
 
 				if ( linkUrl ):
+					print("THE LINKS FOUND => " + linkUrl)
 
 					# Defragment the URLs if they exists
 					parsed = urlparse(linkUrl)
@@ -46,15 +56,20 @@ def extract_next_links(url, resp):
 
 					# Create and extract the absolute URL
 					# given its relative URL
-					isPath = re.match("^\/\w+", linkUrl)
-					if ( isPath ):
-						newUrl = urlparse(url).netloc + linkUrl
+					if ( len(linkUrl) > 0 and linkUrl == parsed.path ):
+						newUrl = ""
+						print("LINKURL => " + linkUrl)
+						if ( linkUrl[0] == "/" ):
+							newUrl = url + linkUrl
+						else:
+							newUrl = url + "/" + linkUrl
+						print("CAUGHT => " + newUrl)
 						crawledLinks.append(newUrl)
-		
 					else:
 						# Check if URL has a valid domain name
 						for domain in domains:
 							if ( domain in urlparse(linkUrl).netloc ):
+								print("EXTRACTING => " + linkUrl)
 								crawledLinks.append(linkUrl)
 		
 			# Create a pickle file with the seed URL
@@ -74,8 +89,25 @@ def extract_next_links(url, resp):
 
 				vLinks = open('validLinks.bin', 'wb')
 				pickle.dump(validLinks, vLinks)
-				vLinks.close
-			
+				vLinks.close()
+			'''
+			if ( not exists('content.bin') ):
+				content = open('content.txt', 'wb')
+				contentSet = {resp.raw_repsponse.conten
+				pickle.dump(contentSet, content)
+				content.close()
+			else:
+				content = open('content.txt', 'rb')
+				contentSet = pickle.load(content)
+				contentSet.add(resp.raw_response.content)
+				content.close()
+
+				content = open('content.bin', 'wb')
+				pickle.dump(contentSet, content)
+				content.close()
+			'''
+
+			#print(crawledLinks)	
 			# Return the list of URLs
 			return crawledLinks
 
@@ -88,13 +120,28 @@ def extract_next_links(url, resp):
 		print("			" + str(resp.error))
 		return list()
 
-	
+
+def checkExtension(path):
+	print("			--> " + path);
+	if ("pdf" in path):
+		print("		__ " + path);
+	if (not re.match(r"pdf", path.lower())):
+		print("			FOUND  " + path.lower());
+	return not	re.match(r".*\.(css|js|bmp|gif|jpe?g|ico"
+			+ r"|png|tiff?|mid|mp2|mp3|mp4"
+			+ r"|wav|avi|mov|mpeg|ram|m4v|mkv|ogg|ogv|pdf"
+			+ r"|ps|eps|tex|ppt|pptx|doc|docx|xls|xlsx|names"
+			+ r"|data|dat|exe|bz2|tar|msi|bin|7z|psd|dmg|iso"
+			+ r"|epub|dll|cnf|tgz|sha1"
+			+ r"|thmx|mso|arff|rtf|jar|csv"
+			+ r"|rm|smil|wmv|swf|wma|zip|rar|gz)$", path.lower())
+
+
 def is_valid(url):
     # Decide whether to crawl this url or not. 
     # If you decide to crawl it, return True; otherwise return False.
     # There are already some conditions that return False.
 	try:
-
 		pathCount = defaultdict(int)
 
 		parsed = urlparse(url)
@@ -106,6 +153,18 @@ def is_valid(url):
 
 		# Not valid (Returns False) if the url is of the
 		# following types of files
+		"""
+		print("		PATH ====> " +parsed.path + "	" +  str(re.match(
+			r".*\.(css|js|bmp|gif|jpe?g|ico"
+			+ r"|png|tiff?|mid|mp2|mp3|mp4"
+			+ r"|wav|avi|mov|mpeg|ram|m4v|mkv|ogg|ogv|pdf"
+			+ r"|ps|eps|tex|ppt|pptx|doc|docx|xls|xlsx|names"
+			+ r"|data|dat|exe|bz2|tar|msi|bin|7z|psd|dmg|iso"
+			+ r"|epub|dll|cnf|tgz|sha1"
+			+ r"|thmx|mso|arff|rtf|jar|csv"
+			+ r"|rm|smil|wmv|swf|wma|zip|rar|gz)$", parsed.path.lower())));
+		"""
+		"""
 		if ( re.match(
 			r".*\.(css|js|bmp|gif|jpe?g|ico"
 			+ r"|png|tiff?|mid|mp2|mp3|mp4"
@@ -115,6 +174,9 @@ def is_valid(url):
 			+ r"|epub|dll|cnf|tgz|sha1"
 			+ r"|thmx|mso|arff|rtf|jar|csv"
 			+ r"|rm|smil|wmv|swf|wma|zip|rar|gz)$", parsed.path.lower())):
+			#print("				" + url  + "		" + parsed.path);
+			#print("						============caught=================");
+			#print("						" + 
 			return False
 		
 		if ( re.match(
@@ -127,6 +189,9 @@ def is_valid(url):
 			+ r"|thmx|mso|arff|rtf|jar|csv"
 			+ r"|rm|smil|wmv|swf|wma|zip|rar|gz)$", parsed.query.lower())):
 			return False
+		"""
+	#	if (url == "https://computableplant.ics.uci.edu/papers/2004/graphNotationsTR.pdf"):
+	#		print("			" + parsed.path + "			" +parsed.query);
 
 		# Not valid (Returns False) if the url is a share link
 		if ( re.match(r"share=", parsed.query.lower())):
@@ -147,14 +212,12 @@ def is_valid(url):
 		for link in pToken:
 			if ".php" in link and pToken[-1] != link:
 				return False
-		
-		# Check if the url has been crawled
-		# 	Add to pickled file if not
-		#	Not a valid url (Returns False) if yes
-		vLinks = open( 'validLinks.bin', 'rb' )
-		validLinks = pickle.load(vLinks)
+		'''
+		# CONTENT SIMILARITY
+		content = open( 'content.bin', 'rb' )
+		contentSet = pickle.load(content)
 
-		if ( url not in validLinks ):
+		if ( c not in validLinks ):
 			validLinks.add(url)
 			vLinks.close()
 			vLinks = open( 'validLinks.bin', 'wb' )
@@ -163,7 +226,58 @@ def is_valid(url):
 			return True
 		else:
 			return False
+		'''
+		"""
+		# Check if the url has been crawled
+		# 	Add to pickled file if not
+		#	Not a valid url (Returns False) if yes
+		vLinks = open( 'validLinks.bin', 'rb' )
+		validLinks = pickle.load(vLinks)
+
+		if ( url not in validLinks ):
+		#	print("			THIS IS THE URL ID------> " + url + "		" + parsed.path + "		" + parsed.query);
+			print("			url id		" + parsed.path + " - " +parsed.query + " -");
+			validLinks.add(url)
+			vLinks.close()
+			vLinks = open( 'validLinks.bin', 'wb' )
+			pickle.dump(validLinks, vLinks)
+			vLinks.close()
+			print("VALID COUNTER ==> " + str(len(validLinks)))
+		#else:
+			#print("ALREADY CRAWLED: " + url)
+		#	return False
+	
 		
+		calendar = open('calendar.txt', 'a+')
+		if ("wics.ics.uci.edu/events/" in url):
+			return False
+			calendar.write(url + "\n")
+
+		
+		dateQuery = open("date.txt", "a+")
+		if (re.match("\w*date\w*=", url)):
+			dateQuery.write(url + "\n")
+		"""
+
+	#	print("CRAWLING: " + url)
+		#return True
+		"""
+		return not re.match(
+			r".*\.(css|js|bmp|gif|jpe?g|ico"
+			+ r"|png|tiff?|mid|mp2|mp3|mp4"
+			+ r"|wav|avi|mov|mpeg|ram|m4v|mkv|ogg|ogv|pdf"
+			+ r"|ps|eps|tex|ppt|pptx|doc|docx|xls|xlsx|names"
+			+ r"|data|dat|exe|bz2|tar|msi|bin|7z|psd|dmg|iso"
+			+ r"|epub|dll|cnf|tgz|sha1"
+			+ r"|thmx|mso|arff|rtf|jar|csv"
+			+ r"|rm|smil|wmv|swf|wma|zip|rar|gz)$", parsed.path.lower())
+		"""
+		if (checkExtension(parsed.path) and checkExtension(parsed.query)):
+			if "pdf" in url:
+				print("			---> 		" + url);
+				print("			--->		" + parsed.path);
+				print("			--->		" + parsed.query + "	" + str(len(parsed.query)));
+		return checkExtension(parsed.path) and checkExtension(parsed.query);
 
 	except TypeError:
 		print ("TypeError for ", parsed)
