@@ -77,17 +77,24 @@ def extract_next_links(url, resp):
 								#print("EXTRACTING => " + linkUrl)
 								crawledLinks.append(linkUrl)
 					'''
-					isPath = re.match("(^[a-z0-9/]+).([a-z0-9/]+)$", linkUrl)
-					if (isPath):
-						if ( linkUrl[0] == "/" ):
-							newUrl = urlparse(url).netloc + linkUrl
+					try:
+						validLinks = pickle.load(open('validLinks.bin', 'rb'))
+						isPath = re.match("(^[a-z0-9/]+).([a-z0-9/]+)$", linkUrl)
+						if (isPath):
+							if ( linkUrl[0] == "/" ):
+								newUrl = urlparse(url).netloc + linkUrl
+							else:
+								newUrl = urlparse(url).netloc + "/" + linkUrl
+							if ( newUrl not in validLinks ):
+								crawledLinks.append(newUrl)
 						else:
-							newUrl = urlparse(url).netloc + "/" + linkUrl
-						crawledLinks.append(newUrl)
-					else:
-						for domain in domains:
-							if domain in urlparse(linkUrl).netloc:
-								crawledLinks.append(linkUrl)
+							for domain in domains:
+								if domain in urlparse(linkUrl).netloc:
+									if ( linkUrl not in validLinks ):
+										crawledLinks.append(linkUrl)
+					except:
+						pass
+
 			
 			# Create a pickle file with the seed URL
 			# if the file doesn't exists
@@ -124,12 +131,14 @@ def extract_next_links(url, resp):
 
 
 def checkExtension(path):
+	'''
 	print("			--> " + path);
 	if ("pdf" in path):
 		print("		__ " + path);
 	if (not re.match(r"pdf", path.lower())):
 		print("			FOUND  " + path.lower());
-	return not	re.match(r".*\.(css|js|bmp|gif|jpe?g|ico"
+	'''
+	return re.match(r".*\.(css|js|bmp|gif|jpe?g|ico"
 			+ r"|png|tiff?|mid|mp2|mp3|mp4"
 			+ r"|wav|avi|mov|mpeg|ram|m4v|mkv|ogg|ogv|pdf"
 			+ r"|ps|eps|tex|ppt|pptx|doc|docx|xls|xlsx|names"
@@ -231,6 +240,9 @@ def is_valid(url):
 		else:
 			return False
 		'''
+
+		if (checkExtension(parsed.path.lower()) or checkExtension(parsed.query.lower())):
+			return False
 
 		if "pdf" in url:
 			return False
