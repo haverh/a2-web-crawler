@@ -5,10 +5,13 @@ import pickle
 from collections import defaultdict
 from os.path import exists
 from sys import getsizeof
+#import http.client
+#from utils.download import download
+#from utils.config import Config
 
 
 def scraper(url, resp):
-	print("				--		Scraper		--");	
+	# print("				--		Scraper		--");	
 	links = extract_next_links(url, resp)
 	return [link for link in links if is_valid(link)]
 
@@ -33,6 +36,7 @@ def extract_next_links(url, resp):
 
 		# Limits the size of content for extraction
 		sz = getsizeof(resp.raw_response.content)
+		print("					SIZE OF " + url + " is " + str(sz))
 
 		if (sz >= 10000 and sz < 1000000):
 			soup = BeautifulSoup( resp.raw_response.content, "html.parser")
@@ -45,33 +49,46 @@ def extract_next_links(url, resp):
 			# Get all URLs that are in the a valid domain
 			for link in soup.find_all('a'):
 				linkUrl = link.get('href')
-
 				if ( linkUrl ):
-					print("THE LINKS FOUND => " + linkUrl)
-
+					#print("OG LINK ==> " + linkUrl)
 					# Defragment the URLs if they exists
 					parsed = urlparse(linkUrl)
 					if ( len(parsed.fragment) > 1 ):
 						linkUrl = linkUrl.replace('#'+parsed.fragment, '')
-
+					#print(" 	DEFRAGGED LINK ==> " + linkUrl)
 					# Create and extract the absolute URL
 					# given its relative URL
+					#print("		LEN = " + str(len(linkUrl)) + " || LinkURL = " + linkUrl + " || Path = " + parsed.path)
+					'''
 					if ( len(linkUrl) > 0 and linkUrl == parsed.path ):
+						#print("			linkUrl ==> " +  linkUrl)
+						#print("			linkPATH ==> " + parsed.path ) 
 						newUrl = ""
-						print("LINKURL => " + linkUrl)
 						if ( linkUrl[0] == "/" ):
 							newUrl = url + linkUrl
 						else:
 							newUrl = url + "/" + linkUrl
-						print("CAUGHT => " + newUrl)
+						#print("		CAUGHT => " + newUrl)
 						crawledLinks.append(newUrl)
 					else:
 						# Check if URL has a valid domain name
 						for domain in domains:
 							if ( domain in urlparse(linkUrl).netloc ):
-								print("EXTRACTING => " + linkUrl)
+								#print("EXTRACTING => " + linkUrl)
 								crawledLinks.append(linkUrl)
-		
+					'''
+					isPath = re.match("(^[a-z0-9/]+).([a-z0-9/]+)$", linkUrl)
+					if (isPath):
+						if ( linkUrl[0] == "/" ):
+							newUrl = urlparse(url).netloc + linkUrl
+						else:
+							newUrl = urlparse(url).netloc + "/" + linkUrl
+						crawledLinks.append(newUrl)
+					else:
+						for domain in domains:
+							if domain in urlparse(linkUrl).netloc:
+								crawledLinks.append(linkUrl)
+			
 			# Create a pickle file with the seed URL
 			# if the file doesn't exists
 			if ( not exists('validLinks.bin') ):
@@ -90,22 +107,7 @@ def extract_next_links(url, resp):
 				vLinks = open('validLinks.bin', 'wb')
 				pickle.dump(validLinks, vLinks)
 				vLinks.close()
-			'''
-			if ( not exists('content.bin') ):
-				content = open('content.txt', 'wb')
-				contentSet = {resp.raw_repsponse.conten
-				pickle.dump(contentSet, content)
-				content.close()
-			else:
-				content = open('content.txt', 'rb')
-				contentSet = pickle.load(content)
-				contentSet.add(resp.raw_response.content)
-				content.close()
-
-				content = open('content.bin', 'wb')
-				pickle.dump(contentSet, content)
-				content.close()
-			'''
+			
 
 			#print(crawledLinks)	
 			# Return the list of URLs
@@ -142,6 +144,8 @@ def is_valid(url):
     # If you decide to crawl it, return True; otherwise return False.
     # There are already some conditions that return False.
 	try:
+		#print("	URL ==> " + url + " <==")
+		#print("				CHECKING FOR VALIDITY\n URL = " + url)
 		pathCount = defaultdict(int)
 
 		parsed = urlparse(url)
@@ -227,26 +231,40 @@ def is_valid(url):
 		else:
 			return False
 		'''
-		"""
+
+		if "pdf" in url:
+			return False
+
+		
 		# Check if the url has been crawled
 		# 	Add to pickled file if not
 		#	Not a valid url (Returns False) if yes
+		
 		vLinks = open( 'validLinks.bin', 'rb' )
 		validLinks = pickle.load(vLinks)
-
-		if ( url not in validLinks ):
+		print("url is : " + url)
+		'''
+		httpconnection = http.client.HTTPConnection(parsed.hostname, parsed.port)
+		httpconnection.request("GET", parsed.path)
+		response = httpconnection.getresponse()
+		'''
+		#response = download(url, Config)
+		#if ( url in validLinks ):
+		#	return False
+		
+		if ( url not in validLinks):
 		#	print("			THIS IS THE URL ID------> " + url + "		" + parsed.path + "		" + parsed.query);
-			print("			url id		" + parsed.path + " - " +parsed.query + " -");
+			#print("			url id		" + parsed.path + " - " +parsed.query + " -");
 			validLinks.add(url)
 			vLinks.close()
 			vLinks = open( 'validLinks.bin', 'wb' )
 			pickle.dump(validLinks, vLinks)
 			vLinks.close()
 			print("VALID COUNTER ==> " + str(len(validLinks)))
-		#else:
+		else:
 			#print("ALREADY CRAWLED: " + url)
-		#	return False
-	
+			return False
+		
 		
 		calendar = open('calendar.txt', 'a+')
 		if ("wics.ics.uci.edu/events/" in url):
@@ -257,7 +275,6 @@ def is_valid(url):
 		dateQuery = open("date.txt", "a+")
 		if (re.match("\w*date\w*=", url)):
 			dateQuery.write(url + "\n")
-		"""
 
 	#	print("CRAWLING: " + url)
 		#return True
@@ -272,12 +289,17 @@ def is_valid(url):
 			+ r"|thmx|mso|arff|rtf|jar|csv"
 			+ r"|rm|smil|wmv|swf|wma|zip|rar|gz)$", parsed.path.lower())
 		"""
+		'''
 		if (checkExtension(parsed.path) and checkExtension(parsed.query)):
 			if "pdf" in url:
+				r
 				print("			---> 		" + url);
 				print("			--->		" + parsed.path);
 				print("			--->		" + parsed.query + "	" + str(len(parsed.query)));
 		return checkExtension(parsed.path) and checkExtension(parsed.query);
+		'''
+
+		return True
 
 	except TypeError:
 		print ("TypeError for ", parsed)
