@@ -5,7 +5,7 @@ import pickle
 from collections import defaultdict
 from os.path import exists
 from sys import getsizeof
-#import http.client
+import http.client
 #from utils.download import download
 #from utils.config import Config
 
@@ -235,34 +235,36 @@ def is_valid(url):
 		if "pdf" in url:
 			return False
 
+		try:
+			# Check if the url has been crawled
+			# 	Add to pickled file if not
+			#	Not a valid url (Returns False) if yes
 		
-		# Check if the url has been crawled
-		# 	Add to pickled file if not
-		#	Not a valid url (Returns False) if yes
+			vLinks = open( 'validLinks.bin', 'rb' )
+			validLinks = pickle.load(vLinks)
+			#print("url is : " + url)
+
+			httpconnection = http.client.HTTPConnection(parsed.hostname, parsed.port)
+			httpconnection.request("GET", parsed.path)
+			response = httpconnection.getresponse()
 		
-		vLinks = open( 'validLinks.bin', 'rb' )
-		validLinks = pickle.load(vLinks)
-		print("url is : " + url)
-		'''
-		httpconnection = http.client.HTTPConnection(parsed.hostname, parsed.port)
-		httpconnection.request("GET", parsed.path)
-		response = httpconnection.getresponse()
-		'''
-		#response = download(url, Config)
-		#if ( url in validLinks ):
-		#	return False
+			#response = download(url, Config)
+			#if ( url in validLinks ):
+			#	return False
 		
-		if ( url not in validLinks):
-		#	print("			THIS IS THE URL ID------> " + url + "		" + parsed.path + "		" + parsed.query);
-			#print("			url id		" + parsed.path + " - " +parsed.query + " -");
-			validLinks.add(url)
-			vLinks.close()
-			vLinks = open( 'validLinks.bin', 'wb' )
-			pickle.dump(validLinks, vLinks)
-			vLinks.close()
-			print("VALID COUNTER ==> " + str(len(validLinks)))
-		else:
-			#print("ALREADY CRAWLED: " + url)
+			if ( url not in validLinks):
+				#	print("			THIS IS THE URL ID------> " + url + "		" + parsed.path + "		" + parsed.query);
+				#print("			url id		" + parsed.path + " - " +parsed.query + " -");
+				validLinks.add(url)
+				vLinks.close()
+				vLinks = open( 'validLinks.bin', 'wb' )
+				pickle.dump(validLinks, vLinks)
+				vLinks.close()
+				print("VALID COUNTER ==> " + str(len(validLinks)))
+			else:
+				#print("ALREADY CRAWLED: " + url)
+				return False
+		except:
 			return False
 		
 		
