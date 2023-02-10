@@ -9,13 +9,15 @@ from sys import getsizeof
 
 
 def scraper(url, resp):
-	# print("				--		Scraper		--");	
 	links = extract_next_links(url, resp)
 	return [link for link in links if is_valid(link)]
 
-
 def splitLine(ln):
 	return ln.split()[0]
+
+def is_good_info( text ):
+	textLength = len(text)
+	return (textLength >= 200 and textLength < 100000)
 
 def extract_next_links(url, resp):
     # Implementation required.
@@ -29,68 +31,107 @@ def extract_next_links(url, resp):
     # Return a list with the hyperlinks (as strings) scrapped from resp.raw_response.content
 
 	# List consisting of valid domains to crawl
-	domains = [".ics.uci.edu", ".cs.uci.edu", ".informatics.uci.edu", ".stat.uci.edu"]
+	domains = ["ics.uci.edu", "cs.uci.edu", "informatics.uci.edu", "stat.uci.edu"]
 	crawledLinks = []
 
 	# Extract links if the status is 200
 	if  (resp.status == 200):
 
-		# Limits the size of content for extraction
-		sz = getsizeof(resp.raw_response.content)
-		print("					SIZE OF " + url + " is " + str(sz))
-
-		if (sz >= 10000 and sz < 1000000):
-			soup = BeautifulSoup( resp.raw_response.content, "html.parser")
-			
-			words = open("words.txt", "a")
-			words.seek(0)
-			words.write(soup.get_text())
-			
-			# Get all URLs that are in the a valid domain
-			for link in soup.find_all('a'):
-				linkUrl = link.get('href')
-				if ( linkUrl ):
-					# Defragment the URLs if they exists
-					parsed = urlparse(linkUrl)
-					if ( len(parsed.fragment) > 1 ):
-						linkUrl = linkUrl.replace('#'+parsed.fragment, '')
-
-					try:
-						validLinks = open('validLinks.txt', 'r').readlines()
-
-						#validLinks = pickle.load(open('validLinks.bin', 'rb'))
-						
-						isPath = re.match("(^[a-z0-9/]+).([a-z0-9/]+)$", linkUrl)
-						if (isPath):
-							if ( linkUrl[0] == "/" ):
-								newUrl = urlparse(url).netloc + linkUrl
-							else:
-								newUrl = urlparse(url).netloc + "/" + linkUrl
-							if ( newUrl not in list(map(splitLine, validLinks)) ):
-								crawledLinks.append(newUrl)
-						else:
-						
-							for domain in domains:
-								if domain in urlparse(linkUrl).netloc:
-									if ( linkUrl not in list(map(splitLine, validLinks)) ):
-										crawledLinks.append(linkUrl)
-					except:
-						pass
-
-			
-			validLinks = open('validLinks.txt', 'a+')
-			validLinks.write(resp.url + " " + str(len(soup.get_text().split())) + "\n")
-			validLinks.seek(0)
-			print("VALID COUNTER ==> " + str(len(validLinks.readlines())))
+		# Initializing 'validLinks.txt'
+		if not exists('validLinks.txt'):
+			validLinks = open('validLinks.txt', 'w')
 			validLinks.close()
+		
+		# Store Content in a variable
+		content = resp.raw_response.content
+
+		# Check if content is NoneType( Empty )
+		# 	If NoneType => BeautifulSoup Throws an Exception
+		try :
+
+			soup = BeautifulSoup( content, "html.parser")
+			text = soup.get_text()
+
+			# Check if website has good info
+			if is_good_info(text):
 			
-			# Return the list of URLs
-			return crawledLinks
-		else:
-			# Return an empty list if size is out of bounds
+				words = open("words.txt", "a")
+				words.write(text)
+			
+				# Get all URLs that are in the a valid domain
+				for link in soup.find_all('a'):
+					linkUrl = link.get('href')
+					if ( linkUrl ):
+						parsed = urlparse(linkUrl)
+						# Defragment the URLs if they exists
+						if ( len(parsed.fragment) > 1 ):
+							linkUrl = linkUrl.replace('#'+parsed.fragment, '')
+
+						try:
+							validLinks = open('validLinks.txt', 'r').readlines()
+							
+							# 
+							isPath = re.match("(^[a-zA-Z0-9/]+).([a-zA-Z0-9/]+)$", linkUrl)
+							if (isPath):
+								if ( linkUrl[0] == "/" ):
+									newUrl = parsed.scheme + "://" + parsed.netloc + linkUrl
+								else:
+									newUrl = parsed.scheme + "://" + parsed.netloc + "/" + linkUrl
+								# Check if the newUrl is not in validLinks.txt
+								# To prevent re-crawling a link twice.
+								if ( newUrl not in list(map(splitLine, validLinks)) ):
+									crawledLinks.append(newUrl)
+							else:
+						
+								for domain in domains:
+									if domain in urlparse(linkUrl).netloc:
+										# Check if the linkUrl is not in the validLinks.txt
+										# To prevent re-crawling a link twice.
+										if ( linkUrl not in list(map(splitLine, validLinks)) ):
+											crawledLinks.append(linkUrl)
+						except:
+							# REMOVE LATER 
+							exceptionLinks = open('exception.txt', 'a+');
+							exceptionLinks.seek(0);
+							exceptionLinks.write(resp.url + "\n");
+							pass
+
+				# Insert current URL to file if all
+				# links are extracted from current URL
+				validLinks = open('validLinks.txt', 'a+')
+				validLinks.seek(0)
+				validLinks.write(resp.url + " " + str(len(text.split())) + "\n")
+				print("VALID COUNTER ==> " + str(len(validLinks.readlines())))
+				validLinks.close()
+
+				# Return all extracted links
+				return crawledLinks
+
+			# Doesn't have good information
+			else:
+				errLinks = open('errLinks.txt', 'a+')
+				errLinks.seek(0)
+				if resp.url + "\n" not in errLinks.readlines():
+					errLinks.write(resp.url + "\n")
+				errLinks.close()
+				
+				# Return empty list( No links found )
+				# Because URL isn't crawled
+				#	Low Information || Too Large
+				return list()
+		
+		# Empty Content
+		except:
+			errLinks = open('errLinks.txt', 'a+')
+			errLinks.seek(0)
+			if resp.url + "\n" not in errLinks.readlines():
+				errLinks.write(resp.url + "\n")
+			errLinks.close()
+
 			return list()
-	else:
-		# Return an empty list if status is not valid
+	
+	# Return an empty list if status is not valid
+	else:	
 		print("ERROR STATUS: " + str(resp.status))
 		print("RESP -> " + str(resp.raw_response))
 		print("			" + str(resp.error))
@@ -142,14 +183,11 @@ def is_valid(url):
 				if ( pathCount[word] > 1 ):
 					return False
 
-		# 
-		for link in pToken:
-			if ".php" in link and pToken[-1] != link:
-				return False	
-
+		# Check if extensions are valid to crawl
 		if (checkExtension(parsed.path.lower()) or checkExtension(parsed.query.lower())):
 			return False
 
+		# Check if its a pdf file
 		if "pdf" in url:
 			return False
 		
@@ -161,12 +199,13 @@ def is_valid(url):
 			print("			INIT	" + url + "	INIT		")
 			validLinks.close()
 			return False
-
-
-		calendar = open('calendar.txt', 'a+')
-		if ("wics.ics.uci.edu/events/" in url or re.match("\w*date\w*=", url)):
+		
+		# Blacklisting all trap websites
+		# 	Calendar Trap
+		if ("event" in url or re.match("\w*date\w*=", url)):
 			return False
 
+		# Write all valid links to txt file
 		allLinks = open('allLinks.txt','a+')
 		allLinks.seek(0)
 		urlList = allLinks.readlines()
@@ -174,6 +213,7 @@ def is_valid(url):
 			allLinks.write(url.strip("/") + "\n")
 		allLinks.close()
 
+		# Return true when its a valid link
 		return True
 
 	except TypeError:

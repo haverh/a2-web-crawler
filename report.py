@@ -3,13 +3,25 @@ from urllib.parse import urlparse
 from collections import defaultdict
 import sys
 from os.path import exists
+from urllib.request import urlopen
+from sys import getsizeof
+from bs4 import BeautifulSoup
+'''
+url = urlopen("https://www.ics.uci.edu/~rohit/Acknowledgments.htm")
+soup = BeautifulSoup(url.read(), "html.parser")
+print(soup.get_text())
+
+sz	= getsizeof(url.read())
+print("SIZE IS : " + str(sz))
+'''
+
 
 validLinks = open('validLinks.txt', 'r').readlines()
-stopwords = open('stopwords.txt').readlines()
+stopwords = open('stopwords.txt', 'r').readlines()
 
 ''' HELPER FUNCTIONS '''
 def filterLine(ln):
-    temp = ln.split()
+	temp = ln.split()
 	temp[1] = int(temp[1])
 	return temp
 			    
@@ -17,7 +29,6 @@ def getFirstElement(ln):
 	return ln.split()[0]
 						    
 def printOut( freqDict, sortByVal=False ):
-	for ()
 	# Time Complexity of sorting is O(nlogn)
 	sortedTokens = sorted(freqDict.items())
 		
@@ -33,10 +44,10 @@ def printOut( freqDict, sortByVal=False ):
 	
 def tokenize( textFile ):
 	# Raise an error if the file/path doesn't exist
-		if ( not exists( textFile ) ):
-			raise FileExistsError(textFile + " does not exist")
+	if ( not exists( textFile ) ):
+		raise FileExistsError(textFile + " does not exist")
 	# Open and read file given in command line
-	with open( textFile, "r" ) as file:	
+	with open( textFile, "r" ) as file:
 		tokenList = []
 		# Initialize token to catch any broken/split words
 		token = ""
@@ -61,19 +72,20 @@ def tokenize( textFile ):
 
 				token = tempList[len(tempList)-1]
 				tempList.pop(len(tempList)-1)
+
 				for tok in tempList:
 					if ( tok != "" ):
 						tokenList.append(tok.lower())
 
 				content = file.read(100)
 
-				if ( token != "" ):
-					tokenList.append(token.lower())
+			if ( token != "" ):
+				tokenList.append(token.lower())
 
-				return tokenList
+			return tokenList
 
-			except UnicodeDecodeError:
-				raise Exception("Unable to read the file. Please enter a pure text file")
+		except UnicodeDecodeError:
+			raise Exception("Unable to read the file. Please enter a pure text file")
 
 
 ''' Count Number of Unique Pages '''
@@ -100,7 +112,7 @@ def trackSubdomain(urlList):
 
 ''' Common Words '''
 def commonWords(textFileName, stopwords):
-    tokenList = tokenize(textFileName)
+	tokenList = tokenize(textFileName)
 	wordCounter = defaultdict(int)
 	for word in tokenList:
 		if word+"\n" not in stopwords:
@@ -115,4 +127,5 @@ print("# of Pages => " + str(countPages(validLinks)))
 print("Longest Page => " + longestPage(validLinks)[0])
 print("# of Subdomains => " + str(len(trackSubdomain(validLinks))))
 printOut(trackSubdomain(validLinks))
-print(commonWords('words.txt', stopwords))
+print(list(commonWords('words.txt', stopwords))[0:50])
+
