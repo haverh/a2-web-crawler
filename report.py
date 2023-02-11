@@ -16,7 +16,7 @@ print("SIZE IS : " + str(sz))
 '''
 
 
-validLinks = open('validLinks.txt', 'r').readlines()
+validLinks = open('crawledLinks.txt', 'r').readlines()
 stopwords = open('stopwords.txt', 'r').readlines()
 
 ''' HELPER FUNCTIONS '''
@@ -27,6 +27,9 @@ def filterLine(ln):
 			    
 def getFirstElement(ln):
 	return ln.split()[0]
+
+def combineTup(tup):
+	return tup[0] + ", " + str(tup[1])
 						    
 def printOut( freqDict, sortByVal=False ):
 	# Time Complexity of sorting is O(nlogn)
@@ -39,9 +42,13 @@ def printOut( freqDict, sortByVal=False ):
 		
 	# Time Complexity is n
 	# Iterates throuhg the sortedTokens and prints out
+	#print(list(sortedTokens))
+	formattedTokens = list(map(combineTup, list(sortedTokens)))
+	print(formattedTokens)
+	'''
 	for tup in sortedTokens:
 		print( str(tup[0]) + " -> " + str(tup[1]))
-	
+	'''
 def tokenize( textFile ):
 	# Raise an error if the file/path doesn't exist
 	if ( not exists( textFile ) ):
@@ -60,26 +67,26 @@ def tokenize( textFile ):
 			# separate words
 			while ( content ):
 				# Split content up to tokens
-				tempList = re.split("[^a-zA-Z0-9\']", content)
+				tempList = re.split("[^a-zA-Z0-9\'-]", content)
 
 				#Check if words are broken up
 				if ( token != "" and tempList[0] != "" ):
 					joined = token + tempList[0]
 					tokenList.append(joined.lower())
 					tempList.pop(0)
-				elif ( token != "" ):
+				elif ( token != "" and len(token) > 2 ):
 					tokenList.append(token.lower())
 
 				token = tempList[len(tempList)-1]
 				tempList.pop(len(tempList)-1)
 
 				for tok in tempList:
-					if ( tok != "" ):
+					if ( tok != "" and len(tok) > 2 ):
 						tokenList.append(tok.lower())
 
 				content = file.read(100)
 
-			if ( token != "" ):
+			if ( token != "" and len(token) > 2 ):
 				tokenList.append(token.lower())
 
 			return tokenList
@@ -104,7 +111,7 @@ def trackSubdomain(urlList):
 	filteredLines = list(map(getFirstElement, urlList))
 	subdomainTracker = defaultdict(int)
 	for item in filteredLines:
-		if re.match(r"^.*[a-zA-Z0-9]+.ics.uci.edu", item):
+		if re.match(r"^.*[a-zA-Z0-9]+\.ics\.uci\.edu", item):
 			subdomainTracker[urlparse(item).netloc] += 1
 
 	return subdomainTracker
@@ -123,9 +130,12 @@ def commonWords(textFileName, stopwords):
 	return listOfCommonWords
 
 
+
 print("# of Pages => " + str(countPages(validLinks)))
 print("Longest Page => " + longestPage(validLinks)[0])
 print("# of Subdomains => " + str(len(trackSubdomain(validLinks))))
 printOut(trackSubdomain(validLinks))
 print(list(commonWords('words.txt', stopwords))[0:50])
+
+
 

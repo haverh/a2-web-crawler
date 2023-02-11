@@ -12,12 +12,16 @@ def scraper(url, resp):
 	links = extract_next_links(url, resp)
 	return [link for link in links if is_valid(link)]
 
+# Helper function
+# To get url from crawledLinks.txt
 def splitLine(ln):
 	return ln.split()[0]
 
-def is_good_info( text ):
-	textLength = len(text)
-	return (textLength >= 200 and textLength < 100000)
+# Helper function
+# Determines if url has good information
+def is_good_info( wordAmount ):
+	textLength = len(wordAmount)
+	return (textLength >= 100 and textLength < 2500)
 
 def extract_next_links(url, resp):
     # Implementation required.
@@ -32,15 +36,15 @@ def extract_next_links(url, resp):
 
 	# List consisting of valid domains to crawl
 	domains = ["ics.uci.edu", "cs.uci.edu", "informatics.uci.edu", "stat.uci.edu"]
-	crawledLinks = []
+	extractedLinks = []
 
 	# Extract links if the status is 200
 	if  (resp.status == 200):
 
-		# Initializing 'validLinks.txt'
-		if not exists('validLinks.txt'):
-			validLinks = open('validLinks.txt', 'w')
-			validLinks.close()
+		# Initializing 'crawled.txt'
+		if not exists('crawledLinks.txt'):
+			crawledLinks = open('crawledLinks.txt', 'w')
+			crawledLinks.close()
 		
 		# Store Content in a variable
 		content = resp.raw_response.content
@@ -51,9 +55,10 @@ def extract_next_links(url, resp):
 
 			soup = BeautifulSoup( content, "html.parser")
 			text = soup.get_text()
+			wordAmount = text.split()
 
 			# Check if website has good info
-			if is_good_info(text):
+			if is_good_info(wordAmount):
 			
 				words = open("words.txt", "a")
 				words.write(text)
@@ -66,29 +71,35 @@ def extract_next_links(url, resp):
 						# Defragment the URLs if they exists
 						if ( len(parsed.fragment) > 1 ):
 							linkUrl = linkUrl.replace('#'+parsed.fragment, '')
-
+						
+						# Handle any unexpected errors that might be thrown
+						# due to opening the file
 						try:
-							validLinks = open('validLinks.txt', 'r').readlines()
+							crawledLinks = open('crawledLinks.txt', 'r').readlines()
 							
-							# 
+							# Check if linkUrl is a relative path
 							isPath = re.match("(^[a-zA-Z0-9/]+).([a-zA-Z0-9/]+)$", linkUrl)
 							if (isPath):
 								if ( linkUrl[0] == "/" ):
 									newUrl = parsed.scheme + "://" + parsed.netloc + linkUrl
 								else:
 									newUrl = parsed.scheme + "://" + parsed.netloc + "/" + linkUrl
-								# Check if the newUrl is not in validLinks.txt
+
+								# Check if the newUrl is not in crawledLinks.txt
 								# To prevent re-crawling a link twice.
-								if ( newUrl not in list(map(splitLine, validLinks)) ):
-									crawledLinks.append(newUrl)
+								if ( newUrl not in list(map(splitLine, crawledLinks)) ):
+									extractedLinks.append(newUrl)
+							# Absolute Path
 							else:
-						
 								for domain in domains:
 									if domain in urlparse(linkUrl).netloc:
-										# Check if the linkUrl is not in the validLinks.txt
+										# Check if the linkUrl is not in the crawledLinks.txt
 										# To prevent re-crawling a link twice.
-										if ( linkUrl not in list(map(splitLine, validLinks)) ):
-											crawledLinks.append(linkUrl)
+										if ( linkUrl not in list(map(splitLine, crawledLinks)) ):
+											extractedLinks.append(linkUrl)
+
+							crawledLinks.close()
+
 						except:
 							# REMOVE LATER 
 							exceptionLinks = open('exception.txt', 'a+');
@@ -98,14 +109,13 @@ def extract_next_links(url, resp):
 
 				# Insert current URL to file if all
 				# links are extracted from current URL
-				validLinks = open('validLinks.txt', 'a+')
-				validLinks.seek(0)
-				validLinks.write(resp.url + " " + str(len(text.split())) + "\n")
-				print("VALID COUNTER ==> " + str(len(validLinks.readlines())))
-				validLinks.close()
+				crawledLinks = open('crawledLinks.txt', 'a+')
+				crawledLinks.seek(0)
+				crawledLinks.write(resp.url + " " + str(len(wordAmount)) + "\n")
+				crawledLinks.close()
 
 				# Return all extracted links
-				return crawledLinks
+				return extractedLinks
 
 			# Doesn't have good information
 			else:
@@ -131,10 +141,7 @@ def extract_next_links(url, resp):
 			return list()
 	
 	# Return an empty list if status is not valid
-	else:	
-		print("ERROR STATUS: " + str(resp.status))
-		print("RESP -> " + str(resp.raw_response))
-		print("			" + str(resp.error))
+	else:
 		errLinks = open('errLinks.txt', 'a+')
 		errLinks.seek(0)
 		if resp.url+"\n"  not in errLinks.readlines():
@@ -194,10 +201,9 @@ def is_valid(url):
 		# Check if the url has been crawled
 		# 	Add to txt file if not
 		#	Not a valid url (Returns False) if yes
-		validLinks = open('validLinks.txt', 'r')
-		if url in list(map(splitLine, validLinks.readlines())):
-			print("			INIT	" + url + "	INIT		")
-			validLinks.close()
+		crawledLinks = open('crawledLinks.txt', 'r')
+		if url in list(map(splitLine, crawledLinks.readlines())):
+			crawledLinks.close()
 			return False
 		
 		# Blacklisting all trap websites
